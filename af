@@ -1,15 +1,69 @@
 #!/bin/sh
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+# Author: Jakub Filak <jfilak@redhat.com>
+# Date: 2016-11-12
+#
+# Install files from the container's /exports/hostfs to the host
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-build_name()
+AF_DB_DIR=/var/lib/af
+
+show_usage()
 {
-    echo docker-container-$1
+        cat <<EOF
+Usage:
+    $0 install [--rpm] [DOCKER_CONTAINER]
+
+    $0 uninstall [DOCKER_CONTAINER]
+
+    $0 list [--container] [DOCKER_CONTAINER]
+
+    $0 query [FILE]
+EOF
 }
 
-build_rpm_name()
+show_help()
+{
+    show_usage
+    cat <<EOF
+
+List of commands:
+    install               install a container's files to the host
+        --rpm             install the files as an rpm package
+
+    uninstall             remove a container's files from the host
+
+    list                  list all files delivered by a container
+        --container       list the files from the container
+
+    query                 search for owner of a file
+
+    help                  show help
+EOF
+}
+
+build_name()
+{
+    echo af-docker-container-$1
+}
+
+build_name_rpm()
 {
     echo $1-0-1.$(uname -i)
 }
@@ -23,13 +77,37 @@ build_exports_path()
 
 build_db_name()
 {
-    echo /var/lib/af/$1.db
+    echo $AF_DB_DIR/db/$1
 }
 
-install()
+build_index_name()
 {
-    local Exports=$(build_exports_path ${1})
-    local Name=$(build_name ${1})
+    echo $AF_DB_DIR/index/$1
+}
+
+create_af_db()
+{
+    local DBName=$(build_db_name $1)
+
+    mkdir -p $AF_DB_DIR/db
+    rm -f $DBName
+
+    pushd $2 >/dev/null 2>&1
+    find | while read f; do
+        local File=$(echo $f | sed "s/^\.//")
+        if [ ! -e $File ]; then
+            echo $File >> $DBName
+        fi
+    done
+    popd >/dev/null 2>&1
+
+    echo $DBName
+}
+
+install_rpm()
+{
+    local Exports=${1}
+    local Name=$(build_name ${2})
 
     local TmpDir=$(mktemp -d /tmp/af.XXXXXX)
     local SpecFile=$TmpDir/$Name.spec
@@ -40,13 +118,13 @@ install()
 Name:		$Name
 Version:	0
 Release:	1
-Summary:	Files delivered by Docker container $1
+Summary:	Files delivered by Docker container ${2}
 
 License:	None
 URL:		https://github.com/jfilak/af
 
 %description
-Files delivered by Docker container $1
+Files delivered by Docker container ${2}
 
 %prep
 
@@ -77,35 +155,110 @@ EOF
         --define "_srcrpmdir $TmpDir" \
         -ba $SpecFile
 
-    local DBName=$(build_db_name $Name)
-    pushd $Exports/hostfs
-    find | while read f; do
-        local File=$(echo $f | sed "s/^\.//")
-        if [ ! -e $File ]; then
-            mkdir -p /var/lib/af
-            echo $File >> $DBName
-        fi
-    done
-    popd
+    rpm -ivh $TmpDir/$(uname -i)/$(build_name_rpm $Name).rpm
+}
 
-    rpm -ivh $TmpDir/$(uname -i)/$(build_rpm_name $Name).rpm || {
-        rm -f $DBName
-    }
+install_files()
+{
+    local Name=$(build_name ${2})
+
+    rsync -avz ${1}/hostfs/ /
+}
+
+install()
+{
+    local Type=${1}
+    case $1 in
+        --rpm)
+            shift
+            ;;
+        #--deb
+        #--apk
+        #--whatever
+        --*)
+            echo "Unsupported type ${1}"
+            exit 1
+            ;;
+        *)
+            Type=""
+            ;;
+    esac
+
+    local Name=$(build_name ${1})
+    local IndexName=$(build_index_name $Name)
+
+    if [ -e $IndexName ]; then
+        echo "Container $1 already installed"
+        return 1
+    fi
+
+    local Exports=$(build_exports_path ${1})
+    local DBName=$(create_af_db $Name $Exports/hostfs)
+
+    case $Type in
+        --rpm)
+            install_rpm $Exports $@ || {
+                rm -f $DBName
+                exit 1
+            }
+            ;;
+        #--deb
+        #--apk
+        #--whatever
+       *)
+            install_files $Exports $@ || {
+                rm -f $DBName
+                exit 1
+            }
+            Type=""
+            ;;
+
+    esac
+
+    mkdir -p $AF_DB_DIR/index
+    echo "AF_INSTALL_TYPE=$Type" > $IndexName
 }
 
 uninstall()
 {
     local Name=$(build_name ${1})
     local DBName=$(build_db_name $Name)
+    local IndexName=$(build_index_name $Name)
+
+    if [ ! -e $IndexName ]; then
+        echo "Container $1 not installed"
+        return 1
+    fi
+
+    source $IndexName
+
+    case $AF_INSTALL_TYPE in
+        --rpm)
+            rpm -evh $(build_name_rpm $Name)
+            ;;
+        #--deb
+        #--apk
+        #--whatever
+       *)
+            cat $DBName | sort -r | while read f; do
+                if [ ! -d $f ]; then
+                    rm -v $f
+                elif [ $(ls -1 $f | wc -l) -eq 0 ]; then
+                    rmdir -v $f
+                fi
+            done
+            ;;
+    esac
+
     rm -f $DBName
-    rpm -e $(build_rpm_name $Name)
+    rm -f $IndexName
 }
 
 query()
 {
-    find /var/lib/af/ | while read f; do
-        grep "^$1\$" -c $f && {
-            echo $f | sed 's/^.*docker-container-\(.*\).db$/\1/'
+    find $AF_DB_DIR/db -mindepth 1 | while read f; do
+        grep "^$1\$" -q $f && {
+            echo $f | sed 's/^.*docker-container-\(.*\)$/\1/'
             exit 0
         }
     done;
@@ -131,7 +284,7 @@ list()
             exit 1
         }
 
-        cat /var/lib/af/$Name.db
+        cat $DBName
     fi
 }
 
@@ -139,27 +292,21 @@ cmd=$1
 shift
 case $cmd in
     install)
-        install $1
+        install $@
         ;;
     query)
-        query $1
+        query $@
         ;;
     list)
         list $@
         ;;
     uninstall)
-        uninstall $1
+        uninstall $@
         ;;
-        *)
-        cat <<EOF
-Usage:
-    $0 install [DOCKER_CONTAINER]
-
-    $0 uninstall [DOCKER_CONTAINER]
-
-    $0 list [DOCKER_CONTAINER]
-
-    $0 query [FILE]
-EOF
+    --help|-h|help)
+        show_help
+        ;;
+    *)
+        show_usage
         ;;
 esac
