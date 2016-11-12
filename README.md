@@ -19,6 +19,28 @@ Commands
  * list      - list all files delivered by the given container
 
 
+How to test
+-----------
+
+Prepare a docker container in a terminal:
+
+```bash
+sudo docker run -it --rm --name wether fedora sh
+mkdir -p /exports/hostfs/opt/filak/
+echo "Hello, world!" > /exports/hostfs/opt/filak/jakub.txt
+```
+
+Run `af` in an other terminal:
+
+```bash
+sudo ./af list --container wether
+sudo ./af install --rpm wether
+sudo ./af list wether
+sudo ./af query /opt/filak/jakub.txt
+rpm -qf /opt/filak/jakub.txt
+sudo ./af uninstall wether
+```
+
 Disclaimer
 -----------
 Be sure the script can destroy your machine. Run it on your own risk.
