@@ -37,7 +37,17 @@ sudo ./af list --container wether
 sudo ./af install --rpm wether
 sudo ./af list wether
 sudo ./af query /opt/filak/jakub.txt
+```
+```
+wether
+```
+```bash
 rpm -qf /opt/filak/jakub.txt
+```
+```
+C_wether___docker.io-fedora-latest-0.noarch
+```
+```bash
 sudo ./af uninstall wether
 ```
 
@@ -47,14 +57,17 @@ lines will `ostree admin unlock` your atomic machine and install the container
 rpm package:
 
 ```bash
-docker run -it --privileged --rm --pid=host -v /:/host --name builder fedora sh
-dnf install -y rpm-build git
-cd /tmp/
-git clone https://github.com/jfilak/af
-cd af
-PATH="atomic-host:$PATH" ./af install --rpm whether
-exit
-rpm -qf /opt/filak/jakub.txt
+$ docker run -it --privileged --rm --pid=host -v /:/host --name builder fedora sh
+$ dnf install -y rpm-build git
+$ cd /tmp/
+$ git clone https://github.com/jfilak/af
+$ cd af
+$ PATH="atomic-host:$PATH" ./af install --rpm wether
+$ exit
+$ rpm -qf /opt/filak/jakub.txt
+```
+```
+C_wether___docker.io-fedora-latest-0.noarch
 ```
 
 

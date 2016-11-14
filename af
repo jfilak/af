@@ -58,14 +58,25 @@ List of commands:
 EOF
 }
 
+docker_container_image_tag()
+{
+    local DockerImage=$(docker inspect --format='{{.Config.Image}}' ${1})
+    docker inspect --format="{{index .RepoTags 0}}" $DockerImage
+}
+
 build_name()
 {
-    echo af-docker-container-$1
+    echo C_${1}___$(docker_container_image_tag ${1} | sed 's/\(.*\)\/\(.*\):\(.*\)/\1-\2/')
+}
+
+build_version()
+{
+    docker_container_image_tag ${1} | sed 's/\(.*\)\/\(.*\):\(.*\)/\3/'
 }
 
 build_name_rpm()
 {
-    echo $1-0-1.$(uname -i)
+    echo ${1}-${2}-0.noarch
 }
 
 build_exports_path()
@@ -114,21 +125,25 @@ install_rpm()
 {
     local Exports=${1}
     local Name=$(build_name ${2})
+    local Version=$(build_version ${2})
+    local Image=$(docker_container_image_tag ${2})
 
     local TmpDir=$(mktemp -d /tmp/af.XXXXXX)
     local SpecFile=$TmpDir/$Name.spec
 
     cat > $SpecFile <<EOF
 Name:		$Name
-Version:	0
-Release:	1
-Summary:	Files delivered by Docker container ${2}
+Version:	$Version
+Release:	0
+Summary:	Host files from $Image
+BuildArch:      noarch
 
 License:	None
 URL:		https://github.com/jfilak/af
 
 %description
-Files delivered by Docker container ${2}
+Files delivered by Docker container : ${2}
+The container was created from Docker image : $Image
 
 %prep
 
@@ -147,7 +162,7 @@ EOF
     cat >> $SpecFile <<EOF
 
 %changelog
-* $(date +"%a %b %d %Y") af <af@localhost> - 0-1
+* $(date +"%a %b %d %Y") af <af@localhost> - ${Version}-0
 - Container import
 EOF
 
@@ -159,7 +174,7 @@ EOF
         --define "_srcrpmdir $TmpDir" \
         -ba $SpecFile
 
-    rpm -ivh $TmpDir/$(uname -i)/$(build_name_rpm $Name).rpm
+    rpm -ivh $TmpDir/noarch/$(build_name_rpm $Name $Version).rpm
 }
 
 install_files()
@@ -228,6 +243,7 @@ install()
 uninstall()
 {
     local Name=$(build_name ${1})
+    local Version=$(build_version ${1})
     local DBName=$(build_db_name $Name)
     local IndexName=$(build_index_name $Name)
 
@@ -240,7 +256,7 @@ uninstall()
 
     case $AF_INSTALL_TYPE in
         --rpm)
-            rpm -evh $(build_name_rpm $Name)
+            rpm -evh $(build_name_rpm $Name $Version)
             ;;
         #--deb
         #--apk
