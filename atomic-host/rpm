@@ -1,0 +1,3 @@
+#!/bin/sh
+(( nsenter -t 1 -m ostree admin status ) | grep -q Unlocked ) || ( nsenter -t 1 -m ostree admin unlock 2>/dev/null )
+nsenter -t 1 -m rpm $(echo $@ | sed 's/ \/host\// \//')

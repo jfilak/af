@@ -71,7 +71,13 @@ build_name_rpm()
 build_exports_path()
 {
     local DockerId=$(docker inspect --format='{{.GraphDriver.Data.DeviceName}}' $1)
-    local MntTarget=$(findmnt -n -r -o TARGET -S /dev/mapper/${DockerId})
+    local MntTarget=$(findmnt -n -r -o TARGET -S /dev/mapper/${DockerId} | grep -v -e "^\/$" -e "rootfs")
+    if [ -z "$MntTarget" ]; then
+        mkdir -p /mnt/${1}
+        mount /dev/mapper/${DockerId} /mnt/$1
+        MntTarget=/mnt/${1}
+    fi
+
     echo $MntTarget/rootfs/exports
 }
 
@@ -111,8 +117,6 @@ install_rpm()
 
     local TmpDir=$(mktemp -d /tmp/af.XXXXXX)
     local SpecFile=$TmpDir/$Name.spec
-
-    tar -C $Exports -czf $TmpDir/hostfs.tar hostfs
 
     cat > $SpecFile <<EOF
 Name:		$Name
@@ -198,6 +202,7 @@ install()
     case $Type in
         --rpm)
             install_rpm $Exports $@ || {
+                test -d /mnt/${1} && ( umount /mnt/${1}; rmdir /mnt/${1} )
                 rm -f $DBName
                 exit 1
             }
@@ -207,7 +212,7 @@ install()
         #--whatever
        *)
             install_files $Exports $@ || {
-                rm -f $DBName
+                test -d /mnt/${1} && ( umount /mnt/${1}; rmdir /mnt/${1} )
                 exit 1
             }
             Type=""
@@ -215,6 +220,7 @@ install()
 
     esac
 
+    test -d /mnt/${1} && ( umount /mnt/${1}; rmdir /mnt/${1} )
     mkdir -p $AF_DB_DIR/index
     echo "AF_INSTALL_TYPE=$Type" > $IndexName
 }
@@ -276,6 +282,7 @@ list()
         local Exports=$(build_exports_path ${1})
         ( cd $Exports/hostfs;
           find . -mindepth 1 | sed "s/^\.//" )
+        test -d /mnt/${1} && ( umount /mnt/${1}; rmdir /mnt/${1} )
     else
         local Name=$(build_name ${1})
         local DBName=$(build_db_name $Name)

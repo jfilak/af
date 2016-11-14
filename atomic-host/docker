@@ -1,0 +1,2 @@
+#!/bin/sh
+nsenter -t 1 -m docker $@

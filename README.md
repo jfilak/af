@@ -41,6 +41,23 @@ rpm -qf /opt/filak/jakub.txt
 sudo ./af uninstall wether
 ```
 
+Atomic host does not ship with rpm-build and it is not possible to install an
+rpm package without several hacks. But nothing is impossible. The following
+lines will `ostree admin unlock` your atomic machine and install the container
+rpm package:
+
+```bash
+docker run -it --privileged --rm --pid=host -v /:/host --name builder fedora sh
+dnf install -y rpm-build git
+cd /tmp/
+git clone https://github.com/jfilak/af
+cd af
+PATH="atomic-host:$PATH" ./af install --rpm whether
+exit
+rpm -qf /opt/filak/jakub.txt
+```
+
+
 Disclaimer
 -----------
 Be sure the script can destroy your machine. Run it on your own risk.
