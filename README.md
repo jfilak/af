@@ -2,9 +2,9 @@ Auto File
 =========
 
 Place the files that your super privileged container needs on the host file
-system in the /exports/rootfs path and let `af` do its magic.
+system in the /exports/hostfs path and let `af` do its magic.
 
-`af` explores the /exports/rootfs path in the container, builds an intermediate
+`af` explores the /exports/hostfs path in the container, builds an intermediate
 rpm package and installs the package on the host.
 
 
