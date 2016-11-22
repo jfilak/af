@@ -51,6 +51,33 @@ C_wether___docker.io-fedora-latest-0.noarch
 sudo ./af uninstall wether
 ```
 
+More details about the source container are include in the package description:
+
+```bash
+rpm -qfi /opt/filak/jakub.txt
+```
+```
+Name        : C_wether___docker.io-fedora
+Version     : latest
+Release     : 0
+Architecture: noarch
+Install Date: Mon 14 Nov 2016 03:11:20 AM CET
+Group       : Unspecified
+Size        : 14
+License     : None
+Signature   : (none)
+Source RPM  : C_weter___docker.io-fedora-latest-0.src.rpm
+Build Date  : Mon 14 Nov 2016 03:11:20 AM CET
+Build Host  : 4d7d6e02109a
+Relocations : (not relocatable)
+URL         : https://github.com/jfilak/af
+Summary     : Host files from docker.io/fedora:latest
+Description :
+Files delivered by Docker container : wether
+The container was created from Docker image : docker.io/fedora:latest
+```
+
+
 Atomic host does not ship with rpm-build and it is not possible to install an
 rpm package without several hacks. But nothing is impossible. The following
 lines will `ostree admin unlock` your atomic machine and install the container
@@ -69,7 +96,6 @@ $ rpm -qf /opt/filak/jakub.txt
 ```
 C_wether___docker.io-fedora-latest-0.noarch
 ```
-
 
 Disclaimer
 -----------
