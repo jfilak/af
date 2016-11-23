@@ -161,7 +161,7 @@ EOF
     find -maxdepth 1 -mindepth 1 | sed "s/^\.//" >> $SpecFile
     popd
 
-    if [ -n "$AF_RPM_POSTUNINSTALL" ]; then
+    if [ -n "${AF_RPM_POSTUNINSTALL:-}" ]; then
         cat >> $SpecFile <<EOF
 %postun
 $AF_RPM_POSTUNINSTALL
