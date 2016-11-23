@@ -140,6 +140,7 @@ BuildArch:      noarch
 
 License:	None
 URL:		https://github.com/jfilak/af
+Provides:	spc(docker:$Image)
 
 %description
 Files delivered by Docker container : ${2}
