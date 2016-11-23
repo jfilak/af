@@ -147,13 +147,6 @@ Provides:	spc(docker:$ContainerImage)
 Files delivered by Docker container : $ContainerName
 The container was created from Docker image : $ContainerImage
 
-%prep
-
-%build
-
-%install
-rsync -avz $Exports/hostfs/ %{buildroot}
-
 %files
 EOF
 
@@ -180,7 +173,9 @@ EOF
         --define "_specdir $TmpDir" \
         --define "_builddir $TmpDir" \
         --define "_srcrpmdir $TmpDir" \
-        -ba $SpecFile
+        --noclean \
+        --buildroot $Exports/hostfs/ \
+        -bb $SpecFile
 
     rpm -ivh $TmpDir/noarch/$(build_name_rpm $PackageName $PackageVersion).rpm
 }
