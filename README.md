@@ -30,25 +30,44 @@ mkdir -p /exports/hostfs/opt/filak/
 echo "Hello, world!" > /exports/hostfs/opt/filak/jakub.txt
 ```
 
-Run `af` in an other terminal:
+Run `af` in an other terminal to check which files the container provides:
 
 ```bash
 sudo ./af list --container wether
+```
+
+If the output looks sane, install the files on the host:
+
+```bash
 sudo ./af install --rpm wether
+```
+
+Print out list of the installed files:
+
+```bash
 sudo ./af list wether
+```
+```
+/opt/filak
+/opt/filak/jakub.txt
+```
+
+Query container owning a file:
+
+```bash
 sudo ./af query /opt/filak/jakub.txt
 ```
 ```
 wether
 ```
+
+Use `rpm` to get information about the owner of a file:
+
 ```bash
 rpm -qf /opt/filak/jakub.txt
 ```
 ```
 C_wether___docker.io-fedora-latest-0.noarch
-```
-```bash
-sudo ./af uninstall wether
 ```
 
 More details about the source container are include in the package description:
@@ -77,6 +96,22 @@ Files delivered by Docker container : wether
 The container was created from Docker image : docker.io/fedora:latest
 ```
 
+We might be enable to define dependencies between containers using the
+`Provides` tag:
+
+```bash
+rpm -q --provides C_wether___docker.io-fedora-24-0
+```
+```
+C_wether___docker.io-fedora = 24-0
+spc(docker:docker.io/fedora:24)
+```
+
+Finally uninstall the files delivered by the container:
+
+```bash
+sudo ./af uninstall wether
+```
 
 Atomic host does not ship with rpm-build and it is not possible to install an
 rpm package without several hacks. But nothing is impossible. The following
@@ -96,6 +131,8 @@ $ rpm -qf /opt/filak/jakub.txt
 ```
 C_wether___docker.io-fedora-latest-0.noarch
 ```
+
+If Atomic gets `rpmbuild`, `af` will not need to be run in a container.
 
 Disclaimer
 -----------
