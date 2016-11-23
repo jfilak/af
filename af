@@ -124,27 +124,28 @@ create_af_db()
 install_rpm()
 {
     local Exports=${1}
-    local Name=$(build_name ${2})
-    local Version=$(build_version ${2})
-    local Image=$(docker_container_image_tag ${2})
+    local ContainerName=${2}
+    local PackageName=$(build_name $ContainerName)
+    local PackageVersion=$(build_version $ContainerName)
+    local ContainerImage=$(docker_container_image_tag $ContainerName)
 
     local TmpDir=$(mktemp -d /tmp/af.XXXXXX)
-    local SpecFile=$TmpDir/$Name.spec
+    local SpecFile=$TmpDir/$PackageName.spec
 
     cat > $SpecFile <<EOF
-Name:		$Name
-Version:	$Version
+Name:		$PackageName
+Version:	$PackageVersion
 Release:	0
-Summary:	Host files from $Image
+Summary:	Host files from $ContainerImage
 BuildArch:      noarch
 
 License:	None
 URL:		https://github.com/jfilak/af
-Provides:	spc(docker:$Image)
+Provides:	spc(docker:$ContainerImage)
 
 %description
-Files delivered by Docker container : ${2}
-The container was created from Docker image : $Image
+Files delivered by Docker container : $ContainerName
+The container was created from Docker image : $ContainerImage
 
 %prep
 
@@ -160,10 +161,16 @@ EOF
     find -maxdepth 1 -mindepth 1 | sed "s/^\.//" >> $SpecFile
     popd
 
-    cat >> $SpecFile <<EOF
+    if [ -n "$AF_RPM_POSTUNINSTALL" ]; then
+        cat >> $SpecFile <<EOF
+%postun
+$AF_RPM_POSTUNINSTALL
+EOF
+    fi
 
+    cat >> $SpecFile <<EOF
 %changelog
-* $(date +"%a %b %d %Y") af <af@localhost> - ${Version}-0
+* $(date +"%a %b %d %Y") af <af@localhost> - ${PackageVersion}-0
 - Container import
 EOF
 
@@ -175,7 +182,7 @@ EOF
         --define "_srcrpmdir $TmpDir" \
         -ba $SpecFile
 
-    rpm -ivh $TmpDir/noarch/$(build_name_rpm $Name $Version).rpm
+    rpm -ivh $TmpDir/noarch/$(build_name_rpm $PackageName $PackageVersion).rpm
 }
 
 install_files()

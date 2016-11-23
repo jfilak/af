@@ -19,6 +19,13 @@ Commands
  * list      - list all files delivered by the given container
 
 
+Configuration
+-------------
+
+The contents of the AF_RPM_POSTUNINSTALL environment variable will be place in
+the `%postun` rpm section.
+
+
 How to test
 -----------
 
